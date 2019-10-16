@@ -28,11 +28,8 @@ public:
 
 vector<unique_ptr<LSPMessage>> LSPWrapper::getLSPResponsesFor(unique_ptr<LSPMessage> message) {
     const bool isInitialize = message->isNotification() && message->method() == LSPMethod::Initialize;
-    auto result = lspLoop->processRequest(move(gs), move(message));
-    gs = move(result.gs);
+    auto result = lspLoop->processRequest(move(message));
 
-    // Should always run typechecking at least once for each request post-initialization.
-    ENFORCE(!initialized || gs->lspTypecheckCount > 0, "Fatal error: LSPLoop did not typecheck GlobalState.");
     if (isInitialize) {
         initialized = true;
     }
@@ -47,25 +44,16 @@ vector<unique_ptr<LSPMessage>> LSPWrapper::getLSPResponsesFor(unique_ptr<LSPMess
 
 vector<unique_ptr<LSPMessage>> LSPWrapper::getLSPResponsesFor(vector<unique_ptr<LSPMessage>> &messages) {
     // Determine boolean before moving messages.
-    bool foundPostInitializationRequest = !messages.empty();
     if (!initialized) {
-        foundPostInitializationRequest = false;
         for (auto &message : messages) {
-            if (initialized) {
-                foundPostInitializationRequest = true;
-                break;
-            } else if (message->isNotification() && message->method() == LSPMethod::Initialized) {
+            if (message->isNotification() && message->method() == LSPMethod::Initialized) {
                 initialized = true;
+                break;
             }
         }
     }
 
-    auto result = lspLoop->processRequests(move(gs), move(messages));
-    gs = move(result.gs);
-
-    // Should always run typechecking at least once for each request post-initialization.
-    ENFORCE(!initialized || !foundPostInitializationRequest || gs->lspTypecheckCount > 0,
-            "Fatal error: LSPLoop did not typecheck GlobalState.");
+    auto result = lspLoop->processRequests(move(messages));
 
     return move(result.responses);
 }
@@ -119,13 +107,6 @@ LSPWrapper::LSPWrapper(unique_ptr<core::GlobalState> gs, options::Options &&opti
 // Define so we can properly destruct unique_ptr<LSPOutputToVector> (which the default destructor can't delete since we
 // forward decl it in the header)
 LSPWrapper::~LSPWrapper() {}
-
-int LSPWrapper::getTypecheckCount() const {
-    if (gs) {
-        return gs->lspTypecheckCount;
-    }
-    return 0;
-}
 
 void LSPWrapper::enableAllExperimentalFeatures() {
     enableExperimentalFeature(LSPExperimentalFeature::Autocomplete);

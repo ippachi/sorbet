@@ -20,9 +20,6 @@ class LSPWrapper final {
     /** The LSP 'server', which runs in the same thread as LSPWrapper. */
     std::unique_ptr<LSPLoop> lspLoop;
 
-    /** The global state of type checking, as calculated by LSP. */
-    std::unique_ptr<core::GlobalState> gs;
-
     /**
      * Sorbet assumes we 'own' this object; keep it alive to avoid memory errors.
      */
@@ -67,11 +64,6 @@ public:
      * Sends multiple messages to LSP, and returns any responses.
      */
     std::vector<std::unique_ptr<LSPMessage>> getLSPResponsesFor(std::vector<std::unique_ptr<LSPMessage>> &messages);
-
-    /**
-     * (For tests only) Retrieve the number of times typechecking has run.
-     */
-    int getTypecheckCount() const;
 
     /**
      * Enable an experimental LSP feature.
